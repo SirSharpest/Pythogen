@@ -1,0 +1,3 @@
+* Pythogen - A library for network modelling host-pathogen interactions
+
+Currently still in development, but more to follow shortly
