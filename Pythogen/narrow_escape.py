@@ -63,6 +63,8 @@ def escape_through_network(G, D, tt, Rn, Eps, particles=1000, pc_stay=0.5, sigma
 
 
 def multi_escp(r, D, N, ep, ignore_error=False):
+    if ep <= 0:
+        return 0
     D0 = D
     Ep0 = ep
     r0 = r

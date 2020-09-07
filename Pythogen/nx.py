@@ -12,6 +12,7 @@ from .voronoi import generate_voronoi
 
 DEFAULT_ATTR = 'weight'
 DEFAULT_C = 'C'
+DEFAULT_PATHOGEN = 'P'
 
 
 def get_ego_graph(G, r=1, C=None, ):
@@ -78,15 +79,18 @@ def set_default_edge_weights(G):
     set_edge_attribute(G, DEFAULT_ATTR, E)
 
 
-def set_concentration(G, C=None, voronoi=False):
+def set_concentration(G, C=None, voronoi=False, start=None,
+                      IC_value=1, pathogen=False):
     if C is None:
-        centre = get_centre_node(G, voronoi)
+        centre = get_centre_node(G, voronoi) if start is None else start
         idx = list(G.nodes()).index(centre)
         IC = np.zeros(G.number_of_nodes())
-        IC[idx] = 1
-        update_node_attribute(G, DEFAULT_C, IC)
+        IC[idx] = IC_value
+        update_node_attribute(
+            G, (DEFAULT_C if not pathogen else DEFAULT_PATHOGEN), IC)
     else:
-        update_node_attribute(G, DEFAULT_C, C)
+        update_node_attribute(
+            G, (DEFAULT_C if not pathogen else DEFAULT_PATHOGEN), C)
 
 
 def generate_shape(shape, n=1, m=1):
@@ -103,17 +107,17 @@ def generate_shape(shape, n=1, m=1):
     return G
 
 
-def extract_graph_info(G):
+def extract_graph_info(G, pathogen=False):
     A = nx.to_numpy_array(G)
     A[A > 0] = 1
-    C = np.diag(np.array(get_concentration(G)))
+    C = np.diag(np.array(get_concentration(G, pathogen=False)))
     return A, C
 
 
-def get_concentration(G, names=False):
+def get_concentration(G, names=False, pathogen=False):
     if names:
-        return nx.get_node_attributes(G, DEFAULT_C)
-    return list(nx.get_node_attributes(G, DEFAULT_C).values())
+        return nx.get_node_attributes(G, DEFAULT_C if pathogen is False else DEFAULT_PATHOGEN)
+    return list(nx.get_node_attributes(G, DEFAULT_C if pathogen is False else DEFAULT_PATHOGEN).values())
 
 
 def set_shape_xy(G):
