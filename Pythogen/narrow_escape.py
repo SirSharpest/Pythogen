@@ -70,7 +70,7 @@ def multi_escp(r, D, N, ep, ignore_error=False):
     r0 = r
 
     D = (np.sqrt(D) / r)**2
-    ep = (np.sqrt(ep) / r)**2
+    ep = ep / r
     def f(ep): return ep - ep**2/np.pi * np.log(ep) + ep**2/np.pi * np.log(2)
     def k(sig): return (4*sig) / (np.pi - 4 * np.sqrt(sig))
     sig = (N * ep**2)/4

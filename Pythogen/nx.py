@@ -80,12 +80,18 @@ def set_default_edge_weights(G):
 
 
 def set_concentration(G, C=None, voronoi=False, start=None,
-                      IC_value=1, pathogen=False):
+                      IC_value=1, pathogen=False, num_init=1):
     if C is None:
-        centre = get_centre_node(G, voronoi) if start is None else start
-        idx = list(G.nodes()).index(centre)
-        IC = np.zeros(G.number_of_nodes())
-        IC[idx] = IC_value
+        if num_init == 1:
+            centre = get_centre_node(G, voronoi) if start is None else start
+            idx = list(G.nodes()).index(centre)
+            IC = np.zeros(G.number_of_nodes())
+            IC[idx] = IC_value
+        else:
+            idxs = np.random.choice(
+                G.number_of_nodes(), size=num_init, replace=False)
+            IC = np.zeros(G.number_of_nodes())
+            IC[idxs] = IC_value
         update_node_attribute(
             G, (DEFAULT_C if not pathogen else DEFAULT_PATHOGEN), IC)
     else:
@@ -110,7 +116,7 @@ def generate_shape(shape, n=1, m=1):
 def extract_graph_info(G, pathogen=False):
     A = nx.to_numpy_array(G)
     A[A > 0] = 1
-    C = np.diag(np.array(get_concentration(G, pathogen=False)))
+    C = np.diag(np.array(get_concentration(G, pathogen=pathogen)))
     return A, C
 
 

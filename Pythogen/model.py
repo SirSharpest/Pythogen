@@ -25,10 +25,12 @@ class NetworkModel:
 
     def reset_IC(self):
         if self.IC == 'default':
+            # Start with zero in defence production...
             set_concentration(self.G, voronoi=self.voronoi,
-                              IC_value=self.IC_value)
+                              IC_value=0)
             set_concentration(self.G, voronoi=self.voronoi,
-                              pathogen=True, IC_value=self.pathogen_IC)
+                              pathogen=True, IC_value=self.pathogen_IC,
+                              num_init=self.num_init_patho_sites)
         else:
             set_concentration(self.G, self.IC, voronoi=self.voronoi)
         self.totalTime = 0
@@ -36,10 +38,24 @@ class NetworkModel:
     def set_model_parameters(self, D, avgCellR=50, PDR=5e-3, PDN=1e3,
                              cellSigmaPC=0, PDSigmaPC=0, PDRSigmaPC=0,
                              yGradientPC=0, deadCellPC=0,
-                             DeffEq="NEP", q=1, effectorD=None, productionPC=None, pathoProductionPC=None,
-                             IC_value=0.1, pathogen_IC=0.1):
+                             DeffEq="NEP", q=1, effectorD=None,
+                             pathogenThreshold=0,
+                             productionPC=None, pathoProductionPC=None,
+                             pathogenProductionThreshold=0,
+                             cellProductionThreshold=0, num_init_patho_sites=1,
+                             num_init_resp_sites=1,
+                             IC_value=0.1, pathogen_IC=0.1, pathogenKill=False,
+                             pathogenKillThreshold=1, pathogenOpenPD=False):
         self.IC_value = IC_value
+        self.pathogenKill = pathogenKill
+        self.pathogenKillThreshold = pathogenKillThreshold
+        self.pathogenOpenPD = pathogenOpenPD
         self.pathogen_IC = pathogen_IC
+        self.pathogenThreshold = pathogenThreshold
+        self.pathogenProductionThreshold = pathogenProductionThreshold
+        self.cellProductionThreshold = cellProductionThreshold
+        self.num_init_resp_sites = num_init_resp_sites
+        self.num_init_patho_sites = num_init_patho_sites
         self.reset_IC()
         self.DeffEq = DeffEq
         self.q = q
@@ -66,8 +82,6 @@ class NetworkModel:
         self.pathoProductionPC = pathoProductionPC
 
     def apply_deadcells(self):
-        centre = get_centre_node(self.G, self.voronoi)
-
         for i, cell in self.G.nodes(data=True):
             cell['deadcell'] = np.random.choice(
                 [True, False], p=[self.deadCellPC, 1-self.deadCellPC])
@@ -102,7 +116,33 @@ class NetworkModel:
         self.PDR = np.zeros(self.G.number_of_nodes())
         for idx, (k, v) in enumerate(self.G.nodes(data=True)):
             # here could add effector interactions to widen...
-            v['PDR'] = v['PDR_orig'] * (1 - v['C'])
+
+            if v['deadcell']:
+                continue
+            if self.pathogenKill and v['P'] >= self.pathogenKillThreshold:
+                v['deadcell'] = True
+                #v['PDR'] = 0
+                #v['C'] = 0
+                #v['P'] = 0
+
+            if v['P'] > self.pathogenThreshold or v['C'] >\
+               self.cellProductionThreshold:
+                v['C'] = v['C'] * (1+self.productionPC)
+                if v['C'] == 0:
+                    v['C'] = self.IC_value
+            if v['P'] > self.pathogenProductionThreshold:
+                v['P'] = v['P'] * (1+self.pathoProductionPC)
+
+            if self.pathogenOpenPD:
+                callose = v['C'] - v['P']
+                callose = 0 if (callose < 0 or callose > 1) else callose
+                v['PDR'] = v['PDR_orig'] * (1 - callose)
+
+            else:
+                v['PDR'] = v['PDR_orig'] * (1 - v['C'])
+            if v['PDR'] < 0:
+                v['PDR'] = 0
+
             self.PDR[idx] = v['PDR']
 
         self.PDArea = np.pi*(self.PDR**2)
@@ -110,7 +150,9 @@ class NetworkModel:
         self.Eps = self.Ep/self.PD_per_cell
         self.set_effective_diffusion()
 
-    def run(self, seconds, dt=1e-2, reapply_randomDC=False, reapply_randomR=False, reset_time=True, reset_IC=True, constMax=False, pathogen=False, dynamic=False, time_per_update=1, perTurnData=False):
+    def run(self, seconds, dt=1e-2, reapply_randomDC=False, reapply_randomR=False,
+            reset_time=True, reset_IC=True, constMax=False, pathogen=False,
+            dynamic=False, time_per_update=1):
         self.epochs = int(seconds/dt)
         if reset_IC:
             self.reset_IC()
@@ -122,28 +164,32 @@ class NetworkModel:
             self.apply_radius()
         if reapply_randomDC:
             self.apply_deadcells()
-
         if pathogen:
             dynamic = True
-
         if dynamic:
+            res = []
             n_epochs_per_update = int(time_per_update/dt)
             num_runs = int(self.epochs / n_epochs_per_update)
-            for _ in range(num_runs):
-                for p in [True, False]:
-                    # Update everything...
-                    self.update_mid_run()
-                    diffuse(self.G, (self.effectorDeff if p else self.Deff), dt, self.Rn,
-                            n_epochs_per_update, deadcells=True, progress=(not self.quiet),
+            for r in range(num_runs):
+                self.update_mid_run()
+                for deff,  path, threshold in zip([self.Deff, self.effectorDeff],
+                                                  [False, True],
+                                                  [self.pathogenThreshold,
+                                                   self.pathogenProductionThreshold]):
+                    diffuse(self.G,  deff, dt, self.Rn,
+                            n_epochs_per_update, deadcells=True,
+                            progress=(not self.quiet),
                             constMax=constMax, voronoi=self.voronoi,
-                            pathogen=p, productionPC=(self.pathoProductionPC if p else self.productionPC))
-                    if perTurnData:
-                        yield self.get_df()
-
+                            pathogen=path, threshold=threshold)
+                df = self.get_df()
+                df['time'] = r * time_per_update
+                res.append(df)
+            return res
         else:
             diffuse(self.G, self.Deff, dt, self.Rn,
                     self.epochs, deadcells=True, progress=(not self.quiet),
-                    constMax=constMax, voronoi=self.voronoi, pathogen=pathogen, productionPC=self.productionPC)
+                    constMax=constMax, voronoi=self.voronoi, pathogen=pathogen)
+            return self.get_df()
 
     def get_df(self, rep=1, apply_cutoff=None):
         centreX, centreY = self.G.nodes[get_centre_node(

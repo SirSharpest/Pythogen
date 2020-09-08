@@ -22,8 +22,12 @@ def calc_D_eff(r, D, N, ep, ignore_error=False):
     return Deff
 
 
-def diffuse(G, D, dt, dx, epochs, deadcells=False, progress=True, constMax=False, voronoi=False, pathogen=False, productionPC=None):
+def diffuse(G, D, dt, dx, epochs, deadcells=False, progress=True, constMax=False, voronoi=False, pathogen=False, threshold=0):
     E, C = extract_graph_info(G, pathogen=pathogen)
+
+    # Need to think about more
+    # C[C < threshold] = 0
+
     if pathogen:
         attr = DEFAULT_PATHOGEN
     else:
@@ -37,16 +41,12 @@ def diffuse(G, D, dt, dx, epochs, deadcells=False, progress=True, constMax=False
         for i in tqdm(range(epochs)):
             E_hat = (diag_C/dx2) * q_hat
             diag_C = diag_C + (np.sum(E_hat, axis=1)-np.sum(E_hat, axis=0))
-            if productionPC is not None:
-                diag_C *= 1+productionPC
             if constMax:
                 diag_C[get_centre_node(G, voronoi)] = 1
     else:
         for i in range(epochs):
             E_hat = (diag_C/dx2) * q_hat
             diag_C = diag_C + (np.sum(E_hat, axis=1)-np.sum(E_hat, axis=0))
-            if productionPC is not None:
-                diag_C *= 1+productionPC
             if constMax:
                 diag_C[get_centre_node(G, voronoi)] = 1
 
