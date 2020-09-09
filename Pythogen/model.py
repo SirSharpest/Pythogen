@@ -41,6 +41,7 @@ class Model:
             df = self.to_pd()
             df['time'] = (update+1)*seconds_per_update
             dfs.append(df)
+        return dfs
 
     def apply_effective_diffusion(self, Cells):
         for signal in self.signals:
