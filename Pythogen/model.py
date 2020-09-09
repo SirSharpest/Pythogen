@@ -1,260 +1,76 @@
 import numpy as np
-from tqdm import tqdm
 from networkx import shortest_path_length
 from .nx import set_concentration
-from .nx import set_default_edge_weights
 from .nx import generate_shape
-from .nx import get_centre_node
-from .diffuse import calc_D_eff, diffuse
+from .nx import get_centre_node, attr_to_arr
 from .utility import G_to_pd
 
 
-class NetworkModel:
-    def __init__(self, shape, sizeN, sizeM, IC='default', quiet=False):
-        self.G = generate_shape(shape, n=sizeN,
-                                m=sizeM)
-
-        self.quiet = quiet
-        self.voronoi = True if 'voronoi' in shape else False
-        self.apply_dist_from_centre()
+class Model:
+    def __init__(self, shape, NCells=100, NCellsY=None, NCellsX=None):
         self.shape = shape
-        set_default_edge_weights(self.G)
-        self.N = np.array([len([_ for _ in self.G.neighbors(n)])
-                           for n in self.G.nodes()])
-        self.IC = IC
-
-    def reset_IC(self):
-        if self.IC == 'default':
-            # Start with zero in defence production...
-            set_concentration(self.G, voronoi=self.voronoi,
-                              IC_value=0)
-            set_concentration(self.G, voronoi=self.voronoi,
-                              pathogen=True, IC_value=self.pathogen_IC,
-                              num_init=self.num_init_patho_sites)
+        if NCellsY is not None and NCellsX is not None:
+            self.G = generate_shape(self.shape, n=NCellsX, m=NCellsY)
         else:
-            set_concentration(self.G, self.IC, voronoi=self.voronoi)
-        self.totalTime = 0
+            self.G = generate_shape(self.shape, n=int(
+                np.sqrt(NCells)), m=int(np.sqrt(NCells)))
+        self.apply_dist_from_centre()
+        self.Cells = None
+        self.signals = []
 
-    def set_model_parameters(self, D, avgCellR=50, PDR=5e-3, PDN=1e3,
-                             cellSigmaPC=0, PDSigmaPC=0, PDRSigmaPC=0,
-                             yGradientPC=0, deadCellPC=0,
-                             DeffEq="NEP", q=1, effectorD=None,
-                             pathogenThreshold=0,
-                             productionPC=None, pathoProductionPC=None,
-                             pathogenProductionThreshold=0,
-                             cellProductionThreshold=0, num_init_patho_sites=1,
-                             num_init_resp_sites=1,
-                             IC_value=0.1, pathogen_IC=0.1, pathogenKill=False,
-                             pathogenKillThreshold=1, pathogenOpenPD=False):
-        self.IC_value = IC_value
-        self.pathogenKill = pathogenKill
-        self.pathogenKillThreshold = pathogenKillThreshold
-        self.pathogenOpenPD = pathogenOpenPD
-        self.pathogen_IC = pathogen_IC
-        self.pathogenThreshold = pathogenThreshold
-        self.pathogenProductionThreshold = pathogenProductionThreshold
-        self.cellProductionThreshold = cellProductionThreshold
-        self.num_init_resp_sites = num_init_resp_sites
-        self.num_init_patho_sites = num_init_patho_sites
-        self.reset_IC()
-        self.DeffEq = DeffEq
-        self.q = q
-        self.D = D
-        self.effectorD = effectorD
-        self.cellSigmaPC = cellSigmaPC
-        self.PDSigmaPC = PDSigmaPC
-        self.PDRSigmaPC = PDRSigmaPC
-        self.yGradientPC = yGradientPC
-        self.deadCellPC = deadCellPC
-        self.avgCellR = avgCellR
-        self.PDR = PDR * np.ones(self.G.number_of_nodes())
-        if PDRSigmaPC > 0:
-            self.PDR *= (np.random.randint(-int(self.PDRSigmaPC*100),
-                                           int(self.PDRSigmaPC*100),
-                                           self.G.number_of_nodes()) / 100) + 1
-        self.PDN = PDN
-        self.PDArea = np.pi*(self.PDR**2)
-        self.avgCellSA = (4*np.pi*(self.avgCellR**2))
-        self.PD_per_um2 = PDN / self.avgCellSA
-        self.apply_deadcells()
-        self.apply_radius()
-        self.productionPC = productionPC
-        self.pathoProductionPC = pathoProductionPC
+    def add_cell_features(self, Cells):
+        self.apply_cell_radii(Cells)
+        Cells.apply_deadcells(self.G)
+        self.Cells = Cells
 
-    def apply_deadcells(self):
-        for i, cell in self.G.nodes(data=True):
-            cell['deadcell'] = np.random.choice(
-                [True, False], p=[self.deadCellPC, 1-self.deadCellPC])
+    def add_signal(self, signal):
+        self.signals.append(signal)
 
-    def apply_radius_G(self, upperLim=200, lowerLim=1):
-        for PDR, (k, v) in zip(self.PDR, self.G.nodes(data=True)):
-            noisy_size = np.random.normal(
-                self.avgCellR, self.cellSigmaPC*self.avgCellR)
-            r = noisy_size * (self.yGradientPC * (v['y']+1))
-            if r < lowerLim or r > upperLim:
-                r = self.avgCellR
-            v['r'] = r
-            v['PDR_orig'] = PDR
-            v['PDR'] = PDR
+        signal.onAdd(self.G)
 
-    def apply_radius(self):
-        self.apply_radius_G()
-        self.Rn = np.array([v['r'] for k, v in self.G.nodes(data=True)])
-        self.PD_per_cell = (
-            np.around(self.PD_per_um2 * (4*np.pi*(self.Rn**2))))
-        if self.PDSigmaPC > 0:
-            self.PD_per_cell *= (np.random.randint(-int(self.PDSigmaPC*100),
-                                                   int(self.PDSigmaPC*100),
-                                                   self.Rn.shape) / 100) + 1
+    def run(self, seconds, dt=1, seconds_per_update=1):
+        dfs = []
+        epochs = int(seconds_per_update/dt)
+        dx = attr_to_arr(self.G, 'radius')
+        for update in range(int(seconds/seconds_per_update)):
+            self.apply_effective_diffusion(self.Cells)
+            for signal in self.signals:
+                signal.run_diffuse(self.G, dt, dx, epochs)
+            for signal in self.signals:
+                signal.interact(self.G)
+            df = self.to_pd()
+            df['time'] = (update+1)*seconds_per_update
+            dfs.append(df)
 
-        self.Ep = self.PD_per_cell * self.PDArea
-        self.Eps = self.Ep/self.PD_per_cell
-        self.set_effective_diffusion()
+    def apply_effective_diffusion(self, Cells):
+        for signal in self.signals:
+            signal.set_Deff(self.G)
 
-    def update_mid_run(self):
-        # Need to define closure rate and conditions
-        self.PDR = np.zeros(self.G.number_of_nodes())
-        for idx, (k, v) in enumerate(self.G.nodes(data=True)):
-            # here could add effector interactions to widen...
+    def apply_cell_radii(self, Cells):
+        for k, c in self.G.nodes(data=True):
+            r_noise = np.random.normal(Cells.meanCellRadius,
+                                       Cells.cellRadiusVariationPC *
+                                       Cells.meanCellRadius)
 
-            if v['deadcell']:
-                continue
-            if self.pathogenKill and v['P'] >= self.pathogenKillThreshold:
-                v['deadcell'] = True
-                #v['PDR'] = 0
-                #v['C'] = 0
-                #v['P'] = 0
+            # TODO: need to do a minY maxX normalisation for voronoi plots
+            r = r_noise * (Cells.cellSizeGradient * (c['y']) + 1)
 
-            if v['P'] > self.pathogenThreshold or v['C'] >\
-               self.cellProductionThreshold:
-                v['C'] = v['C'] * (1+self.productionPC)
-                if v['C'] == 0:
-                    v['C'] = self.IC_value
-            if v['P'] > self.pathogenProductionThreshold:
-                v['P'] = v['P'] * (1+self.pathoProductionPC)
+            pdr = abs(np.random.normal(Cells.meanPDRadius,
+                                       Cells.PDRadiusVariationPC *
+                                       Cells.meanPDRadius))
 
-            if self.pathogenOpenPD:
-                callose = v['C'] - v['P']
-                callose = 0 if (callose < 0 or callose > 1) else callose
-                v['PDR'] = v['PDR_orig'] * (1 - callose)
+            num_pd = abs(np.random.normal(Cells.meanPDNum,
+                                          Cells.meanPDNum*Cells.PDNumVariationPC))
 
-            else:
-                v['PDR'] = v['PDR_orig'] * (1 - v['C'])
-            if v['PDR'] < 0:
-                v['PDR'] = 0
-
-            self.PDR[idx] = v['PDR']
-
-        self.PDArea = np.pi*(self.PDR**2)
-        self.Ep = self.PD_per_cell * self.PDArea
-        self.Eps = self.Ep/self.PD_per_cell
-        self.set_effective_diffusion()
-
-    def run(self, seconds, dt=1e-2, reapply_randomDC=False, reapply_randomR=False,
-            reset_time=True, reset_IC=True, constMax=False, pathogen=False,
-            dynamic=False, time_per_update=1):
-        self.epochs = int(seconds/dt)
-        if reset_IC:
-            self.reset_IC()
-        if reset_time:
-            self.totalTime = seconds
-        else:
-            self.totalTime += seconds
-        if reapply_randomR:
-            self.apply_radius()
-        if reapply_randomDC:
-            self.apply_deadcells()
-        if pathogen:
-            dynamic = True
-        if dynamic:
-            res = []
-            n_epochs_per_update = int(time_per_update/dt)
-            num_runs = int(self.epochs / n_epochs_per_update)
-            for r in range(num_runs):
-                self.update_mid_run()
-                for deff,  path, threshold in zip([self.Deff, self.effectorDeff],
-                                                  [False, True],
-                                                  [self.pathogenThreshold,
-                                                   self.pathogenProductionThreshold]):
-                    diffuse(self.G,  deff, dt, self.Rn,
-                            n_epochs_per_update, deadcells=True,
-                            progress=(not self.quiet),
-                            constMax=constMax, voronoi=self.voronoi,
-                            pathogen=path, threshold=threshold)
-                df = self.get_df()
-                df['time'] = r * time_per_update
-                res.append(df)
-            return res
-        else:
-            diffuse(self.G, self.Deff, dt, self.Rn,
-                    self.epochs, deadcells=True, progress=(not self.quiet),
-                    constMax=constMax, voronoi=self.voronoi, pathogen=pathogen)
-            return self.get_df()
-
-    def get_df(self, rep=1, apply_cutoff=None):
-        centreX, centreY = self.G.nodes[get_centre_node(
-            self.G, self.voronoi)]['x'], self.G.nodes[get_centre_node(self.G, self.voronoi)]['y']
-        for n, d in self.G.nodes(data=True):
-            x, y = d['x'], d['y']
-            if x < centreX:
-                if y > centreY:
-                    q = 1
-                else:
-                    q = 2
-            else:
-                if y > centreY:
-                    q = 3
-                else:
-                    q = 4
-            if x == centreX and y == centreY:
-                q = 0
-            d['quadrant'] = q
-            d['half'] = 1 if q < 3 else 2
-            d['num_neighbours'] = self.G.degree[n]
-            d['neighbours'] = [n for n in self.G.neighbors(n)]
-        df = G_to_pd(self.G, self.shape, self.Deff, rep)
-        df['sigma'] = self.cellSigmaPC
-        df['gradient'] = self.yGradientPC
-        df['DC'] = self.deadCellPC
-        df['time'] = self.totalTime
-        df['C'] = df['C'].astype('float64')
-        return df
+            c['radius'] = r
+            c['pd_radius_original'] = pdr
+            c['pd_radius'] = pdr
+            c['num_pd'] = num_pd
 
     def apply_dist_from_centre(self):
-        centre = get_centre_node(self.G, voronoi=self.voronoi)
-        if self.quiet:
-            for n, d in self.G.nodes(data=True):
-                d['distCentre'] = shortest_path_length(self.G, n, centre)
-        else:
-            print('Calculating distances...')
-            for n, d in tqdm(self.G.nodes(data=True)):
-                d['distCentre'] = shortest_path_length(self.G, n, centre)
+        centre = get_centre_node(self.G, voronoi=self.shape)
+        for n, d in self.G.nodes(data=True):
+            d['distCentre'] = shortest_path_length(self.G, n, centre)
 
-    def set_effective_diffusion(self):
-        self.N = np.array([len([_ for _ in self.G.neighbors(n)])
-                           for n in self.G.nodes()])
-
-        if self.DeffEq == "NEP":
-            self.Deff = np.array([calc_D_eff(r, self.D, n, ep)
-                                  for r, ep, n in zip(self.Rn,
-                                                      self.Eps,
-                                                      self.PD_per_cell)])
-            if self.effectorD is not None:
-                self.effectorDeff = np.array([calc_D_eff(r, self.effectorD, n, ep)
-                                              for r, ep, n in zip(self.Rn,
-                                                                  self.Eps,
-                                                                  self.PD_per_cell)])
-
-        elif self.DeffEq == "Deinum":
-            def Deinum(D, q, l): return (D*q*l)/(D+q*l)
-            self.Deff = np.array([Deinum(self.D, self.q, r*2)
-                                  for r in self.Rn])
-
-            if self.effectorD is not None:
-                self.effectorDeff = np.array([Deinum(self.effectorD, self.q, r*2)
-                                              for r in self.Rn])
-
-        elif self.DeffEq == 'D':
-            self.Deff = self.D
-            if self.effectorD is not None:
-                self.effectorDeff = self.effectorD
+    def to_pd(self):
+        return G_to_pd(self.G, self.shape)

@@ -13,6 +13,7 @@ from .voronoi import generate_voronoi
 DEFAULT_ATTR = 'weight'
 DEFAULT_C = 'C'
 DEFAULT_PATHOGEN = 'P'
+DEFAULT_EFFECTOR = 'E'
 
 
 def get_ego_graph(G, r=1, C=None, ):
@@ -80,7 +81,7 @@ def set_default_edge_weights(G):
 
 
 def set_concentration(G, C=None, voronoi=False, start=None,
-                      IC_value=1, pathogen=False, num_init=1):
+                      IC_value=1, kind=DEFAULT_C, num_init=1):
     if C is None:
         if num_init == 1:
             centre = get_centre_node(G, voronoi) if start is None else start
@@ -93,10 +94,10 @@ def set_concentration(G, C=None, voronoi=False, start=None,
             IC = np.zeros(G.number_of_nodes())
             IC[idxs] = IC_value
         update_node_attribute(
-            G, (DEFAULT_C if not pathogen else DEFAULT_PATHOGEN), IC)
+            G, kind, IC)
     else:
         update_node_attribute(
-            G, (DEFAULT_C if not pathogen else DEFAULT_PATHOGEN), C)
+            G, kind, C)
 
 
 def generate_shape(shape, n=1, m=1):
@@ -113,17 +114,17 @@ def generate_shape(shape, n=1, m=1):
     return G
 
 
-def extract_graph_info(G, pathogen=False):
+def extract_graph_info(G, kind=DEFAULT_C):
     A = nx.to_numpy_array(G)
     A[A > 0] = 1
-    C = np.diag(np.array(get_concentration(G, pathogen=pathogen)))
+    C = np.diag(np.array(get_concentration(G, kind=kind)))
     return A, C
 
 
-def get_concentration(G, names=False, pathogen=False):
+def get_concentration(G, names=False, kind=DEFAULT_C):
     if names:
-        return nx.get_node_attributes(G, DEFAULT_C if pathogen is False else DEFAULT_PATHOGEN)
-    return list(nx.get_node_attributes(G, DEFAULT_C if pathogen is False else DEFAULT_PATHOGEN).values())
+        return nx.get_node_attributes(G, kind)
+    return list(nx.get_node_attributes(G, kind).values())
 
 
 def set_shape_xy(G):
@@ -142,3 +143,7 @@ def get_weights(G, attr=None):
     if attr is None:
         attr = DEFAULT_ATTR
     return list(nx.get_edge_attributes(G, attr).values())
+
+
+def attr_to_arr(G, attr):
+    return np.array([n[attr] for k, n in G.nodes(data=True)])

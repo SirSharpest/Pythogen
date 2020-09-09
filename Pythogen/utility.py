@@ -13,13 +13,16 @@ def enforce_matrix_shape(I, O):
     return I
 
 
-def G_to_pd(G, shape, D, rep_id):
+def G_to_pd(G, shape):
     data = dict(G.nodes(data=True))
     for k, v in data.items():
         if 'pos' in data[k]:
             del data[k]['pos']
     df = pd.DataFrame(data).T
     df['shape'] = shape
-    df['D'] = D
-    df['rep'] = rep_id
+
     return df
+
+
+def attr_to_arr(G, attr):
+    return np.array([v[attr] for k, v in G.nodes(data=True)])
