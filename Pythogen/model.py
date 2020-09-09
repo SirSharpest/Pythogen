@@ -47,13 +47,16 @@ class Model:
             signal.set_Deff(self.G)
 
     def apply_cell_radii(self, Cells):
+
+        Ys = attr_to_arr(self.G, 'y')
+        maxY = max(Ys)
+
         for k, c in self.G.nodes(data=True):
             r_noise = np.random.normal(Cells.meanCellRadius,
                                        Cells.cellRadiusVariationPC *
                                        Cells.meanCellRadius)
 
-            # TODO: need to do a minY maxX normalisation for voronoi plots
-            r = r_noise * (Cells.cellSizeGradient * (c['y']) + 1)
+            r = r_noise * (1 + c['y']/maxY * Cells.cellSizeGradientPC)
 
             pdr = abs(np.random.normal(Cells.meanPDRadius,
                                        Cells.PDRadiusVariationPC *
@@ -61,7 +64,6 @@ class Model:
 
             num_pd = abs(np.random.normal(Cells.meanPDNum,
                                           Cells.meanPDNum*Cells.PDNumVariationPC))
-
             c['radius'] = r
             c['pd_radius_original'] = pdr
             c['pd_radius'] = pdr

@@ -5,7 +5,7 @@ class Cells:
     def __init__(self, meanCellRadius, meanPDRadius, meanPDNum=1e3,
                  cellRadiusVariationPC=0, PDRadiusVariationPC=0,
                  PDNumVariationPC=0, deadCellPC=0,
-                 cellSizeGradient=0):
+                 cellSizeGradientPC=0):
 
         self.meanCellRadius = meanCellRadius
         self.meanPDRadius = meanPDRadius
@@ -14,7 +14,7 @@ class Cells:
         self.PDRadiusVariationPC = PDRadiusVariationPC
         self.PDNumVariationPC = PDNumVariationPC
         self.deadCellPC = deadCellPC
-        self.cellSizeGradient = cellSizeGradient
+        self.cellSizeGradientPC = cellSizeGradientPC
 
     def apply_deadcells(self, G):
         for i, cell in G.nodes(data=True):
