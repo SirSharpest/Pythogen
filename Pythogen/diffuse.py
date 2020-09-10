@@ -1,6 +1,5 @@
 import numpy as np
 from .nx import extract_graph_info, update_node_attribute
-from .nx import weights_to_A, get_centre_node
 from .narrow_escape import multi_escp
 
 

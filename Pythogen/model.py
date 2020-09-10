@@ -1,6 +1,5 @@
 import numpy as np
 from networkx import shortest_path_length
-from .nx import set_concentration
 from .nx import generate_shape
 from .nx import get_centre_node, attr_to_arr
 from .utility import G_to_pd
@@ -36,8 +35,11 @@ class Model:
             self.apply_effective_diffusion(self.Cells)
             for signal in self.signals:
                 signal.run_diffuse(self.G, dt, dx, epochs)
+                signal.flatten(self.G)
             for signal in self.signals:
                 signal.interact(self.G)
+                signal.run_decay(self.G)
+                signal.flatten(self.G)
             df = self.to_pd()
             df['time'] = (update+1)*seconds_per_update
             dfs.append(df)

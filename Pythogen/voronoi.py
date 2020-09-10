@@ -23,7 +23,7 @@ def generate_voronoi(ncellsX, ncellsY, bboxsize=1):
         P = 0
         for idxy in range(len(vertices)-1):
             P += distance.euclidean(vertices[idxy], vertices[idxy+1])
-        G.nodes[idx]['P'] = P
+        #G.nodes[idx]['P'] = P
         G.nodes[idx]['x'], G.nodes[idx]['y'] = centeroidnp(vertices)
         for idy, r in enumerate(vor.filtered_regions):
             if idy == idx:
