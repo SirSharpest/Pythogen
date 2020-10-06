@@ -16,7 +16,7 @@ def calc_D_eff(r, D, N, ep, ignore_error=False):
     if tau == 0:
         return 0
     x2 = r**2
-    Deff = x2 / (2*tau)
+    Deff = x2 / (6*tau)
     return Deff
 
 
