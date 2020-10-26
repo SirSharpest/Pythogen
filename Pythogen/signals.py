@@ -1,11 +1,12 @@
 import numpy as np
+import networkx as nx
 from .diffuse import calc_D_eff, diffuse
 
 
 class Signal:
     def __init__(self, D, initial_value, name, producesSelf=False,
                  productionThreshold=0,
-                 productionRate=0, DeffEq='NEP',
+                 productionRate=0,
                  DoesntDiffuse=False, decayRate=0):
 
         self.D = D
@@ -14,7 +15,6 @@ class Signal:
         self.productionThreshold = productionThreshold
         self.productionRate = productionRate
         self.initial_value = initial_value
-        self.DeffEq = DeffEq
         self.Deff = None
         self.interactions = []
         self.interaction_names = []
@@ -41,15 +41,14 @@ class Signal:
         if self.DoesntDiffuse:
             self.Deff = np.zeros(G.number_of_nodes())
             return 0
-        Deff = np.ones(G.number_of_nodes())
-        if self.DeffEq == 'NEP':
-            for idx, (k, c) in enumerate(G.nodes(data=True)):
-                Deff[idx] = calc_D_eff(c['radius'], self.D,
-                                       c['num_pd'],
-                                       np.pi*(c['pd_radius'])**2)
-        else:
-            Deff = Deff * self.D
-        self.Deff = Deff
+
+        self.Deff = np.zeros(G.number_of_nodes())
+        for idx, (k, c) in enumerate(G.nodes(data=True)):
+            if c['radius_ep'] <= 0:
+                continue
+            self.Deff[idx] = calc_D_eff(c['radius'], self.D,
+                                        c['num_pd']/c['num_neighbours'],
+                                        np.pi*(c['radius_ep'])**2)
 
     def run_diffuse(self, G, dt, dx, epochs):
         if not self.DoesntDiffuse:

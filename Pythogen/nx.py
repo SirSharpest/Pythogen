@@ -6,10 +6,6 @@ from networkx.generators.lattice import triangular_lattice_graph
 from .voronoi import generate_voronoi
 
 
-# DEFAULT_ATTR = 'weight'
-# DEFAULT_C = 'C'
-# DEFAULT_PATHOGEN = 'P'
-# DEFAULT_EFFECTOR = 'E'
 
 
 def get_ego_graph(G, r=1, C=None, ):
@@ -21,7 +17,8 @@ def get_ego_graph(G, r=1, C=None, ):
 
 def update_node_attribute(G, attr, new_attrs):
     for n, d in G.nodes(data=True):
-        d[attr] = new_attrs[n]
+        d[attr] = new_attrs[n]   
+    #nx.set_node_attributes(G, dict(zip(G.nodes(), new_attrs)), attr)
 
 
 def get_centre_node_voronoi(G):

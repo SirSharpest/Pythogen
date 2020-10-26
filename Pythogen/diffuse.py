@@ -5,16 +5,14 @@ from .narrow_escape import multi_escp
 
 def apply_dead_cells(G, E):
     for cell in G.nodes(data=True):
-        if 'deadcell' in cell[1] or cell[1]['pd_radius'] == 0:
-            if cell[1]['deadcell'] or cell[1]['pd_radius'] == 0:
+        if 'deadcell' in cell[1] or cell[1]['radius_ep'] == 0:
+            if cell[1]['deadcell'] or cell[1]['radius_ep'] == 0:
                 E[:, cell[0]] = 0
                 E[cell[0]] = 0
 
 
 def calc_D_eff(r, D, N, ep, ignore_error=False):
     tau = multi_escp(r, D, N, ep)
-    if tau == 0:
-        return 0
     x2 = r**2
     Deff = x2 / (6*tau)
     return Deff

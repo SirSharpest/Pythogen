@@ -13,9 +13,16 @@ class Model:
         else:
             self.G = generate_shape(self.shape, n=int(
                 np.sqrt(NCells)), m=int(np.sqrt(NCells)))
+
+        self.apply_neighbours_to_data()
         self.apply_dist_from_centre()
         self.Cells = None
         self.signals = []
+
+    def apply_neighbours_to_data(self):
+        for idx, n in self.G.nodes(data=True):
+            n['neighbours'] = list(self.G.neighbors(idx))
+            n['num_neighbours'] = len(n['neighbours'])
 
     def add_cell_features(self, Cells):
         self.apply_cell_radii(Cells)
@@ -68,8 +75,8 @@ class Model:
             num_pd = abs(np.random.normal(Cells.meanPDNum,
                                           Cells.meanPDNum*Cells.PDNumVariationPC))
             c['radius'] = r
-            c['pd_radius_original'] = pdr
-            c['pd_radius'] = pdr
+            c['radius_ep_original'] = pdr
+            c['radius_ep'] = pdr
             c['num_pd'] = num_pd
 
     def apply_dist_from_centre(self):
