@@ -1,11 +1,11 @@
+import pandas as pd
+import os
 import numpy as np
 import networkx as nx
 from networkx.generators.lattice import grid_2d_graph
 from networkx.generators.lattice import hexagonal_lattice_graph
 from networkx.generators.lattice import triangular_lattice_graph
 from .voronoi import generate_voronoi
-
-
 
 
 def get_ego_graph(G, r=1, C=None, ):
@@ -17,7 +17,7 @@ def get_ego_graph(G, r=1, C=None, ):
 
 def update_node_attribute(G, attr, new_attrs):
     for n, d in G.nodes(data=True):
-        d[attr] = new_attrs[n]   
+        d[attr] = new_attrs[n]
     #nx.set_node_attributes(G, dict(zip(G.nodes(), new_attrs)), attr)
 
 
@@ -50,6 +50,31 @@ def get_centre_node(G, voronoi=False):
 def set_edge_attribute(G, attr, new_attrs):
     nx.set_edge_attributes(G, {(u, v): va for (u, v, a), va in zip(
         G.edges(data=True), new_attrs)}, attr)
+
+
+def custom_shape(df):
+    _, ext = os.path.splitext(df)
+    if ext != '.json':
+        raise NotImplementedError('Only json supported for now')
+    df = pd.read_json(df).T.drop(0)
+
+    df['neighbours'] = df.apply(
+        lambda r: [x for x in r['neighbours'] if x > 0], axis=1)
+    df['area'] = np.sqrt(df['area'].values.astype('float')/np.pi)
+    df = df.rename(columns={'centroid_x': 'x',
+                            'centroid_y': 'y', 'area': 'radius'})
+    # Gotta make a network
+
+    G = nx.Graph()
+    for idx, row in df.iterrows():
+        edges = [(idx, n) for n in row['neighbours']]
+        G.add_edges_from(edges)
+        for feature in ['x', 'y', 'radius']:
+            G.nodes(data=True)[idx][feature] = row[feature]
+    Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+    G = G.subgraph(Gcc[0])
+
+    return nx.convert_node_labels_to_integers(G)
 
 
 def generate_shape(shape, n=1, m=1):

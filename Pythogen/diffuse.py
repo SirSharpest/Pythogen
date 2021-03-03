@@ -3,14 +3,6 @@ from .nx import extract_graph_info, update_node_attribute
 from .narrow_escape import multi_escp
 
 
-def apply_dead_cells(G, E):
-    for cell in G.nodes(data=True):
-        if 'deadcell' in cell[1] or cell[1]['radius_ep'] == 0:
-            if cell[1]['deadcell'] or cell[1]['radius_ep'] == 0:
-                E[:, cell[0]] = 0
-                E[cell[0]] = 0
-
-
 def calc_D_eff(r, D, N, ep, ignore_error=False):
     tau = multi_escp(r, D, N, ep)
     x2 = r**2
@@ -18,10 +10,13 @@ def calc_D_eff(r, D, N, ep, ignore_error=False):
     return Deff
 
 
-def diffuse(G, D, dt, dx, epochs, name):
+def diffuse(G, D, dt, dx, epochs, name, modifier_fs):
     E, C = extract_graph_info(G, kind=name)
+
+    for f in modifier_fs:
+        f(G, E)
+
     dx2 = dx**2
-    apply_dead_cells(G, E)
     q_hat = (E * D * dt)
     diag_C = np.diag(C)
     for i in range(epochs):

@@ -23,6 +23,7 @@ class Signal:
         self.DoesntDiffuse = DoesntDiffuse
         self.variables = {}
         self.decayRate = decayRate
+        self.diffusion_fs = []
 
     def run_decay(self, G):
         if self.decayRate > 0:
@@ -41,7 +42,6 @@ class Signal:
         if self.DoesntDiffuse:
             self.Deff = np.zeros(G.number_of_nodes())
             return 0
-
         self.Deff = np.zeros(G.number_of_nodes())
         for idx, (k, c) in enumerate(G.nodes(data=True)):
             if c['radius_ep'] <= 0:
@@ -52,7 +52,7 @@ class Signal:
 
     def run_diffuse(self, G, dt, dx, epochs):
         if not self.DoesntDiffuse:
-            diffuse(G, self.Deff, dt, dx, epochs, self.name)
+            diffuse(G, self.Deff, dt, dx, epochs, self.name, self.diffusion_fs)
         for k, c in G.nodes(data=True):
             if c[self.name] > 1:
                 c[self.name] = 1
@@ -77,3 +77,6 @@ class Signal:
         self.add_to_cells(G)
         for f, names in zip(self.onAdds, self.onAdd_names):
             f(self, G, names)
+
+    def add_diffusion_modifier(self, f):
+        self.diffusion_fs.append(f)
