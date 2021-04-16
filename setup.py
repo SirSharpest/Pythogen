@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='Pythogen',
-      version='0.2',
+      version='0.3',
       description='Library used for simulating cellular network diffusion',
       url='https://github.com/SirSharpest/pythogen',
       author='Nathan Hughes',
