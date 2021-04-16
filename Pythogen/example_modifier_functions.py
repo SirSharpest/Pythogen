@@ -1,7 +1,9 @@
 import numpy as np
 
+# For signals!
 
-def apply_dead_cells(G, E):
+
+def apply_deadcells(G, E):
     for cell in G.nodes(data=True):
         if 'deadcell' in cell[1] or cell[1]['radius_ep'] == 0:
             if cell[1]['deadcell'] or cell[1]['radius_ep'] == 0:
@@ -19,6 +21,7 @@ def apply_asym_diffusion(G, E, x=10):
                     E[cell[0], n] = E[cell[0], n]/x
 
 
+# For Cells - refactor
 def apply_deadcells(G, deadCellPC=0):
     for i, cell in G.nodes(data=True):
         cell['deadcell'] = np.random.choice(

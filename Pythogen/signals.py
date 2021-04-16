@@ -52,7 +52,8 @@ class Signal:
 
     def run_diffuse(self, G, dt, dx, epochs):
         if not self.DoesntDiffuse:
-            diffuse(G, self.Deff, dt, dx, epochs, self.name, self.diffusion_fs)
+            diffuse(G, self.Deff, dt, dx, epochs,
+                    self.name, self.diffusion_fs, self)
         for k, c in G.nodes(data=True):
             if c[self.name] > 1:
                 c[self.name] = 1
