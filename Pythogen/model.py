@@ -53,6 +53,7 @@ class Model:
             for signal in self.signals:
                 signal.interact(self.G)
                 signal.run_decay(self.G)
+                signal.run_production(self.G)
                 signal.flatten(self.G)
             df = self.to_pd()
             df['time'] = (update+1)*seconds_per_update

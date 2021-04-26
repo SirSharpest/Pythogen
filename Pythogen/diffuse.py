@@ -9,8 +9,6 @@ def calc_D_eff(r, D, N, ep):
     Deff = x2 / (6*tau)
     return Deff
 
-# TODO: Apply a realitive factor here for number of neighbours... Perhaps when calculating D_eff?
-
 
 def diffuse(G, D, dt, dx, epochs, name, modifier_fs, signal):
     E, C = extract_graph_info(G, kind=name)
@@ -19,6 +17,7 @@ def diffuse(G, D, dt, dx, epochs, name, modifier_fs, signal):
     dx2 = dx**2
     q_hat = (E * D * dt)
     diag_C = np.diag(C)
+
     for i in range(epochs):
         E_hat = (diag_C/dx2) * q_hat
         diag_C = diag_C + (np.sum(E_hat, axis=1)-np.sum(E_hat, axis=0))

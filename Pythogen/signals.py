@@ -5,6 +5,7 @@ from .diffuse import calc_D_eff, diffuse
 
 class Signal:
     def __init__(self, D, initial_value, name, producesSelf=False,
+                 decays=False,
                  productionThreshold=0,
                  productionRate=0,
                  DoesntDiffuse=False, decayRate=0):
@@ -15,6 +16,7 @@ class Signal:
         self.productionThreshold = productionThreshold
         self.productionRate = productionRate
         self.initial_value = initial_value
+        self.decays = decays
         self.Deff = None
         self.interactions = []
         self.interaction_names = []
@@ -26,10 +28,18 @@ class Signal:
         self.diffusion_fs = []
 
     def run_decay(self, G):
-        if self.decayRate > 0:
-            for k, c in G.nodes(data=True):
-                if c[self.name] > 0:
-                    c[self.name] *= 1-self.decayRate
+        if self.decays:
+            if self.decayRate > 0:
+                for k, c in G.nodes(data=True):
+                    if c[self.name] > 0:
+                        c[self.name] *= 1-self.decayRate
+
+    def run_production(self, G):
+        if self.producesSelf:
+            if self.productionRate > 0:
+                for k, c in G.nodes(data=True):
+                    if c[self.name] > self.productionThreshold:
+                        c[self.name] *= 1+self.productionRate
 
     def flatten(self, G):
         for k, c in G.nodes(data=True):
