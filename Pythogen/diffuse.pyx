@@ -1,16 +1,20 @@
+cimport numpy as cnp
 import numpy as np
 from .nx import extract_graph_info, update_node_attribute
 from .narrow_escape import multi_escp
 
 
 def calc_D_eff(r, D, N, ep):
-    tau = multi_escp(r, D, N, ep)
-    x2 = r**2
-    Deff = x2 / (6*tau)
+    cdef float tau = multi_escp(r, D, N, ep)
+    cdef float x2 = r**2
+    cdef float Deff = x2 / (6*tau)
     return Deff
 
 
 def diffuse(G, D, dt, dx, epochs, name, modifier_fs, signal):
+    cdef cnp.ndarray[cnp.float, cast=True, ndim=2] E_hat, q_hat, E 
+    cdef cnp.ndarray[cnp.float, cast=True, ndim=1] C 
+
     E, C = extract_graph_info(G, kind=name)
     for f in modifier_fs:
         f(G, E, signal)

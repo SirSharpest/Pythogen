@@ -1,6 +1,6 @@
 from setuptools import setup
 from Cython.Build import cythonize
-
+import numpy as np 
 setup(name='Pythogen',
       version='0.4c',
       description='Library used for simulating cellular network diffusion',
@@ -13,4 +13,5 @@ setup(name='Pythogen',
           'numpy', 'matplotlib', 'scipy', 'networkx', 'pandas', 'tqdm'
       ],
       ext_modules = cythonize("Pythogen/*.pyx"),
-      zip_safe=False)
+      include_dirs=np.get_include(),
+      zip_safe=True)
