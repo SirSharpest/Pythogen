@@ -1,7 +1,8 @@
 import numpy as np
-
+from time import time 
 from Pythogen import cells, model, signals
 
+t1 = time()
 meanCellRadius, meanPDRadius = 25, 5e-3
 
 cell_params = cells.Cells(meanCellRadius, meanPDRadius, cellSizeGradientPC=0.5)
@@ -24,3 +25,4 @@ mdl.run(10)
 
 df = mdl.to_pd()
 print(df.sort_values(by='radius', ascending=False).head())
+print(f"Took {time()-t1} seconds")
