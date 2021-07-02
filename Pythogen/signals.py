@@ -1,11 +1,12 @@
 import numpy as np
 import networkx as nx
-from .diffuse import calc_D_eff, diffuse
+from .diffuse import calc_cell_D_eff_NEP, diffuse
 
 
 class Signal:
     def __init__(self, D, initial_value, name, producesSelf=False,
                  decays=False,
+                 deff_f=calc_cell_D_eff_NEP,
                  productionThreshold=0,
                  productionRate=0,
                  DoesntDiffuse=False, decayRate=0):
@@ -17,6 +18,7 @@ class Signal:
         self.productionRate = productionRate
         self.initial_value = initial_value
         self.decays = decays
+        self.deff_f = deff_f
         self.Deff = None
         self.interactions = []
         self.interaction_names = []
@@ -56,9 +58,9 @@ class Signal:
         for idx, (k, c) in enumerate(G.nodes(data=True)):
             if c['radius_ep'] <= 0:
                 continue
-            self.Deff[idx] = calc_D_eff(c['radius'], self.D,
-                                        c['num_pd']/c['num_neighbours'],
-                                        np.pi*(c['radius_ep'])**2)
+
+            self.Deff[idx] = self.deff_f(c, self)
+
 
     def run_diffuse(self, G, dt, dx, epochs):
         if not self.DoesntDiffuse:

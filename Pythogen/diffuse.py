@@ -3,12 +3,23 @@ from .nx import extract_graph_info, update_node_attribute
 from .narrow_escape import multi_escp
 
 
+def calc_cell_D_eff_NEP(cell, signal):
+    return calc_D_eff(cell['radius'], signal.D,
+                            cell['num_pd']/cell['num_neighbours'],
+                            np.pi*(cell['radius_ep'])**2)
+
 def calc_D_eff(r, D, N, ep):
     tau = multi_escp(r, D, N, ep)
     x2 = r**2
     Deff = x2 / (6*tau)
     return Deff
 
+def calc_cell_D_eff_permiability(cell, signal):
+    return calc_D_eff_permiability(signal.D, cell['q'],
+                                   cell['radius']*2 )
+
+def calc_D_eff_permiability(D,q,l):
+    return (D*q*l)/(D+q*l)
 
 def diffuse(G, D, dt, dx, epochs, name, modifier_fs, signal):
     E, C = extract_graph_info(G, kind=name)
