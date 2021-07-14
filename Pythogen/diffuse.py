@@ -26,12 +26,16 @@ def diffuse(G, D, dt, dx, epochs, name, modifier_fs, signal):
     for f in modifier_fs:
         f(G, E, signal)
     dx2 = dx**2
-    q_hat = (E * D * dt)
+
+    q_hat = np.zeros( (2, len(E), len(E)) )
+    q_hat[0] = (D* dt *E) # Potential per connection! 
+    q_hat[1] = (E.T * dt * D).T
+    q_hat = np.min(q_hat, axis=0)
     diag_C = np.diag(C)
 
-    for i in range(epochs):
+    for _ in range(epochs):
         E_hat = (diag_C/dx2) * q_hat
         diag_C = diag_C + (np.sum(E_hat, axis=1)-np.sum(E_hat, axis=0))
-    diag_C[diag_C > 1] = 1
+    #diag_C[diag_C > 1] = 1
     diag_C[diag_C < 0] = 0
     update_node_attribute(G, name, diag_C)

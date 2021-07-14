@@ -9,7 +9,7 @@ class Signal:
                  deff_f=calc_cell_D_eff_NEP,
                  productionThreshold=0,
                  productionRate=0,
-                 DoesntDiffuse=False, decayRate=0):
+                 DoesntDiffuse=False, decayRate=0, do_flatten=True):
 
         self.D = D
         self.name = name
@@ -28,6 +28,7 @@ class Signal:
         self.variables = {}
         self.decayRate = decayRate
         self.diffusion_fs = []
+        self.do_flatten = do_flatten
 
     def run_decay(self, G):
         if self.decays:
@@ -44,11 +45,12 @@ class Signal:
                         c[self.name] *= 1+self.productionRate
 
     def flatten(self, G):
-        for k, c in G.nodes(data=True):
-            if c[self.name] < 1e-6:
-                c[self.name] = 0
-            elif c[self.name] > 1:
-                c[self.name] = 1
+        if self.do_flatten:
+            for k, c in G.nodes(data=True):
+                if c[self.name] < 1e-6:
+                    c[self.name] = 0
+                elif c[self.name] > 1:
+                    c[self.name] = 1
 
     def set_Deff(self, G):
         if self.DoesntDiffuse:
@@ -56,10 +58,10 @@ class Signal:
             return 0
         self.Deff = np.zeros(G.number_of_nodes())
         for idx, (k, c) in enumerate(G.nodes(data=True)):
-            if c['radius_ep'] <= 0:
+            deff = self.deff_f(c, self)
+            if deff <= 0:
                 continue
-
-            self.Deff[idx] = self.deff_f(c, self)
+            self.Deff[idx] = deff
 
 
     def run_diffuse(self, G, dt, dx, epochs):

@@ -51,12 +51,13 @@ class Model:
         dfs = []
         epochs = int(seconds_per_update / dt)
         dx = attr_to_arr(self.G, 'radius')
+        for signal in self.signals:
+            signal.set_Deff(self.G)
         for update in range(int(seconds / seconds_per_update)):
-            self.apply_effective_diffusion(self.Cells)
+            
             for signal in self.signals:
                 signal.run_diffuse(self.G, dt, dx, epochs)
-                signal.flatten(self.G)
-            for signal in self.signals:
+                signal.set_Deff(self.G)
                 signal.interact(self.G)
                 signal.run_decay(self.G)
                 signal.run_production(self.G)
@@ -65,11 +66,7 @@ class Model:
             df['time'] = (update + 1) * seconds_per_update
             dfs.append(df)
         return dfs
-
-    def apply_effective_diffusion(self, Cells):
-        for signal in self.signals:
-            signal.set_Deff(self.G)
-
+ 
     def apply_cell_radii(self, Cells, overwrite=False):
         Ys = attr_to_arr(self.G, 'y')
         maxY = max(Ys)
